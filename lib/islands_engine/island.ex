@@ -13,6 +13,23 @@ defmodule IslandsEngine.Island do
     end
   end
 
+  def overlaps?(existing_island, new_island) do
+    not MapSet.disjoint?(existing_island.coordinates, new_island.coordinates)
+  end
+
+  def forested?(island), do: MapSet.equal?(island.coordinates, island.hit_coordinates)
+
+  def guess(island, coordinate) do
+    if MapSet.member?(island.coordinates, coordinate) do
+      hit_coordinates = MapSet.put(island.hit_coordinates, coordinate)
+      {:hit, %{island | hit_coordinates: hit_coordinates}}
+    else
+      :miss
+    end
+  end
+
+  def types, do: ~w(atoll dot l_shape s_shape square)a
+
   defp add_coordinates(offsets, upper_left) do
     Enum.reduce_while(offsets, MapSet.new(), fn offset, acc ->
       add_coordinate(acc, upper_left, offset)
