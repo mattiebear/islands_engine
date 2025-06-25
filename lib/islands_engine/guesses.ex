@@ -12,7 +12,7 @@ defmodule IslandsEngine.Guesses do
     update_in(guesses.hits, &MapSet.put(&1, coordinate))
   end
 
-  def add(%__MODULE__{} = guesses, :hit, %Coordinate{} = coordinate) do
+  def add(%__MODULE__{} = guesses, :miss, %Coordinate{} = coordinate) do
     update_in(guesses.misses, &MapSet.put(&1, coordinate))
   end
 end
