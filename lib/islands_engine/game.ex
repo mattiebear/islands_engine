@@ -1,13 +1,16 @@
 defmodule IslandsEngine.Game do
-  use GenServer
+  use GenServer, restart: :transient
 
   alias IslandsEngine.{Board, Coordinate, Guesses, Island, Rules}
 
   @players [:player1, :player2]
+  @timeout 1000 * 60 * 60 * 24
 
   def start_link(name) when is_binary(name) do
-    GenServer.start_link(__MODULE__, name, [])
+    GenServer.start_link(__MODULE__, name, name: via_tuple(name))
   end
+
+  def via_tuple(name), do: {:via, Registry, {Registry.Game, name}}
 
   def init(name) do
     {:ok, player1_guesses} = Guesses.new()
@@ -16,7 +19,7 @@ defmodule IslandsEngine.Game do
     player1 = %{name: name, board: Board.new(), guesses: player1_guesses}
     player2 = %{name: nil, board: Board.new(), guesses: player2_guesses}
 
-    {:ok, %{player1: player1, player2: player2, rules: Rules.new()}}
+    {:ok, %{player1: player1, player2: player2, rules: Rules.new()}, @timeout}
   end
 
   def handle_call({:add_player, name}, _from, state) do
@@ -63,9 +66,6 @@ defmodule IslandsEngine.Game do
     opponent_key = opponent(player)
     opponent_board = player_board(state, opponent_key)
 
-    dbg(opponent_key)
-    dbg(opponent_board)
-
     with {:ok, rules} <- Rules.check(state.rules, {:guess_coordinate, player}),
          {:ok, coordinate} <- Coordinate.new(row, col),
          {hit_or_miss, forested_island, win_status, opponent_board} <-
@@ -80,6 +80,10 @@ defmodule IslandsEngine.Game do
       :error -> {:reply, :error, state}
       {:error, :invalid_coordinate} -> {:reply, {:error, :invalid_coordinate}, state}
     end
+  end
+
+  def handle_info(:timeout, state) do
+    {:stop, {:shutdown, :timeout}, state}
   end
 
   def add_player(game, name) when is_binary(name) do
@@ -117,7 +121,7 @@ defmodule IslandsEngine.Game do
   end
 
   defp reply_success(state, response) do
-    {:reply, response, state}
+    {:reply, response, state, @timeout}
   end
 
   defp player_board(state, player), do: Map.get(state, player).board
