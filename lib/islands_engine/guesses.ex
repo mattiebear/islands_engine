@@ -5,7 +5,7 @@ defmodule IslandsEngine.Guesses do
   defstruct [:hits, :misses]
 
   def new do
-    {:ok, %__MODULE__{hits: MapSet.new(), misses: MapSet.new()}}
+    %__MODULE__{hits: MapSet.new(), misses: MapSet.new()}
   end
 
   def add(%__MODULE__{} = guesses, :hit, %Coordinate{} = coordinate) do

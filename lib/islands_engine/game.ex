@@ -13,13 +13,8 @@ defmodule IslandsEngine.Game do
   def via_tuple(name), do: {:via, Registry, {Registry.Game, name}}
 
   def init(name) do
-    {:ok, player1_guesses} = Guesses.new()
-    {:ok, player2_guesses} = Guesses.new()
-
-    player1 = %{name: name, board: Board.new(), guesses: player1_guesses}
-    player2 = %{name: nil, board: Board.new(), guesses: player2_guesses}
-
-    {:ok, %{player1: player1, player2: player2, rules: Rules.new()}, @timeout}
+    send(self(), {:set_state, name})
+    {:ok, fresh_state(name)}
   end
 
   def handle_call({:add_player, name}, _from, state) do
@@ -82,6 +77,18 @@ defmodule IslandsEngine.Game do
     end
   end
 
+  def handle_info({:set_state, name}, current_state) do
+    next_state =
+      case :ets.lookup(:game_state, name) do
+        [] -> current_state
+        [{_key, state}] -> state
+      end
+
+    :ets.insert(:game_state, {name, next_state})
+
+    {:noreply, next_state, @timeout}
+  end
+
   def handle_info(:timeout, state) do
     {:stop, {:shutdown, :timeout}, state}
   end
@@ -100,6 +107,13 @@ defmodule IslandsEngine.Game do
 
   def guess_coordinate(game, player, row, col) when player in @players do
     GenServer.call(game, {:guess_coordinate, player, row, col})
+  end
+
+  defp fresh_state(name) do
+    player1 = %{name: name, board: Board.new(), guesses: Guesses.new()}
+    player2 = %{name: nil, board: Board.new(), guesses: Guesses.new()}
+
+    %{player1: player1, player2: player2, rules: Rules.new()}
   end
 
   defp update_player2_name(state, name) do
@@ -121,6 +135,7 @@ defmodule IslandsEngine.Game do
   end
 
   defp reply_success(state, response) do
+    :ets.insert(:game_state, {state.player1.name, state})
     {:reply, response, state, @timeout}
   end
 
